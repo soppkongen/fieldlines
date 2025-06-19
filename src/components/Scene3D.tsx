@@ -1,32 +1,72 @@
-import React, { useRef, useMemo } from 'react';
+import React, { useRef, useMemo, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Group, Vector3 } from 'three';
 import { useSimulationStore } from '../store/simulationStore';
 import { ChargeSource } from './ChargeSource';
+import { MagneticSource } from './MagneticSource';
 import { FieldLines } from './FieldLines';
+import { MagneticFieldLines } from './MagneticFieldLines';
 import { VectorField } from './VectorField';
 import { FieldProbe } from './FieldProbe';
+import { WavePropagationDisplay } from './WavePropagationDisplay';
+import { PhysicsEngine } from '../utils/physics';
 
 export function Scene3D() {
   const groupRef = useRef<Group>(null);
-  const { sources, isRunning, visualizationMode, animationSpeed } = useSimulationStore();
+  const { 
+    sources, 
+    isRunning, 
+    visualizationMode, 
+    fieldType,
+    animationSpeed, 
+    currentTime,
+    stepSimulation,
+    probePosition,
+    fieldHistory
+  } = useSimulationStore();
 
   // Animation loop
-  useFrame((state) => {
+  useFrame((state, delta) => {
     if (!isRunning || !groupRef.current) return;
     
     const time = state.clock.getElapsedTime() * animationSpeed;
-    groupRef.current.rotation.y = Math.sin(time * 0.1) * 0.05;
+    groupRef.current.rotation.y = Math.sin(time * 0.1) * 0.02;
+    
+    // Step simulation forward
+    stepSimulation();
   });
 
-  // Calculate field lines based on sources
+  // Update field history
+  useEffect(() => {
+    if (!isRunning) return;
+    
+    const electricField = PhysicsEngine.calculateElectricField(probePosition, sources, currentTime);
+    const magneticField = PhysicsEngine.calculateMagneticField(probePosition, sources, currentTime);
+    const poyntingVector = PhysicsEngine.calculatePoyntingVector(electricField, magneticField);
+    
+    const newFieldData = {
+      electric: electricField,
+      magnetic: magneticField,
+      poynting: poyntingVector,
+      timestamp: currentTime
+    };
+    
+    useSimulationStore.setState(state => ({
+      fieldHistory: [...state.fieldHistory.slice(-999), newFieldData]
+    }));
+  }, [currentTime, isRunning, probePosition, sources]);
+
+  // Calculate field lines based on sources and field type
   const fieldLines = useMemo(() => {
     if (sources.length === 0) return [];
     
-    const lines = [];
-    const density = 8; // Field lines per unit charge
+    const electricSources = sources.filter(s => ['charge', 'dipole'].includes(s.type));
+    if (electricSources.length === 0 && fieldType === 'electric') return [];
     
-    for (const source of sources) {
+    const lines = [];
+    const density = 8;
+    
+    for (const source of electricSources) {
       const numLines = Math.abs(source.strength) * density;
       
       for (let i = 0; i < numLines; i++) {
@@ -37,77 +77,51 @@ export function Scene3D() {
           source.position[2] + Math.sin(angle) * 0.2
         );
         
-        const points = calculateFieldLine(startPos, sources, source.strength > 0);
+        const points = PhysicsEngine.generateFieldLine(startPos, sources, 0.1, 200);
         lines.push({ points, strength: source.strength });
       }
     }
     
     return lines;
-  }, [sources]);
+  }, [sources, fieldType]);
+
+  const electricSources = sources.filter(s => ['charge', 'dipole'].includes(s.type));
+  const magneticSources = sources.filter(s => ['wire', 'loop', 'solenoid'].includes(s.type));
 
   return (
     <group ref={groupRef}>
-      {/* Charge Sources */}
-      {sources.map((source) => (
+      {/* Electric Charge Sources */}
+      {electricSources.map((source) => (
         <ChargeSource key={source.id} source={source} />
+      ))}
+      
+      {/* Magnetic Current Sources */}
+      {magneticSources.map((source) => (
+        <MagneticSource key={source.id} source={source} />
       ))}
       
       {/* Field Visualization */}
       {visualizationMode === 'fieldLines' && (
-        <FieldLines lines={fieldLines} />
+        <>
+          {(fieldType === 'electric' || fieldType === 'both') && (
+            <FieldLines lines={fieldLines} />
+          )}
+          {(fieldType === 'magnetic' || fieldType === 'both') && (
+            <MagneticFieldLines sources={magneticSources} density={8} />
+          )}
+        </>
       )}
       
       {visualizationMode === 'vectorField' && (
-        <VectorField sources={sources} />
+        <VectorField sources={sources} fieldType={fieldType} />
+      )}
+      
+      {visualizationMode === 'wavePropagation' && (
+        <WavePropagationDisplay />
       )}
       
       {/* Field Probe */}
       <FieldProbe />
     </group>
   );
-}
-
-// Helper function to calculate field line paths
-function calculateFieldLine(startPos: Vector3, sources: any[], isPositive: boolean): Vector3[] {
-  const points = [startPos.clone()];
-  const stepSize = 0.1;
-  const maxSteps = 200;
-  let currentPos = startPos.clone();
-  
-  for (let step = 0; step < maxSteps; step++) {
-    const field = calculateElectricField(currentPos, sources);
-    
-    if (field.length() < 0.001) break; // Field too weak
-    
-    field.normalize().multiplyScalar(stepSize * (isPositive ? 1 : -1));
-    currentPos.add(field);
-    
-    // Stop if too far from origin
-    if (currentPos.length() > 20) break;
-    
-    points.push(currentPos.clone());
-  }
-  
-  return points;
-}
-
-// Calculate electric field at a point
-function calculateElectricField(position: Vector3, sources: any[]): Vector3 {
-  const field = new Vector3();
-  const k = 8.99e9; // Coulomb's constant (simplified for visualization)
-  
-  for (const source of sources) {
-    const sourcePos = new Vector3(...source.position);
-    const r = position.clone().sub(sourcePos);
-    const distance = r.length();
-    
-    if (distance < 0.1) continue; // Avoid singularity
-    
-    const fieldMagnitude = (k * source.strength) / (distance * distance);
-    const fieldDirection = r.normalize();
-    
-    field.add(fieldDirection.multiplyScalar(fieldMagnitude));
-  }
-  
-  return field;
 }

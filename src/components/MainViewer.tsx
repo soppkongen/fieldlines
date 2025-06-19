@@ -2,9 +2,32 @@ import React, { Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Grid, Stats } from '@react-three/drei';
 import { Scene3D } from './Scene3D';
+import { MultiViewDisplay } from './MultiViewDisplay';
 import { LoadingSpinner } from './LoadingSpinner';
+import { useSimulationStore } from '../store/simulationStore';
 
 export function MainViewer() {
+  const { visualizationMode } = useSimulationStore();
+
+  if (visualizationMode === 'multiView') {
+    return (
+      <div className="flex-1 relative bg-gray-900">
+        <div className="absolute top-4 left-4 z-10">
+          <div className="bg-black/50 backdrop-blur-sm rounded-lg p-3">
+            <h3 className="text-sm font-medium text-white mb-2">Multi-View Display</h3>
+            <div className="text-xs text-gray-300 space-y-1">
+              <div>• XY: Top view</div>
+              <div>• YZ: Side view</div>
+              <div>• XZ: Front view</div>
+              <div>• 3D: Perspective view</div>
+            </div>
+          </div>
+        </div>
+        <MultiViewDisplay />
+      </div>
+    );
+  }
+
   return (
     <div className="flex-1 relative bg-gray-900">
       <div className="absolute top-4 left-4 z-10">

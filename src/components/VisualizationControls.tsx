@@ -6,11 +6,16 @@ export function VisualizationControls() {
   const [isExpanded, setIsExpanded] = useState(true);
   const { 
     visualizationMode, 
-    setVisualizationMode, 
+    setVisualizationMode,
+    fieldType,
+    setFieldType,
     animationSpeed, 
     setAnimationSpeed,
     fieldLinesDensity,
-    setFieldLinesDensity 
+    setFieldLinesDensity,
+    showFieldComponents,
+    activeViews,
+    setActiveViews
   } = useSimulationStore();
 
   return (
@@ -28,6 +33,7 @@ export function VisualizationControls() {
 
       {isExpanded && (
         <div className="px-4 pb-4 space-y-4">
+          {/* Display Mode */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">Display Mode</label>
             <div className="grid grid-cols-2 gap-2">
@@ -51,9 +57,77 @@ export function VisualizationControls() {
               >
                 Vector Field
               </button>
+              <button
+                onClick={() => setVisualizationMode('multiView')}
+                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  visualizationMode === 'multiView'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                }`}
+              >
+                Multi-View
+              </button>
+              <button
+                onClick={() => setVisualizationMode('wavePropagation')}
+                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  visualizationMode === 'wavePropagation'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                }`}
+              >
+                Wave Propagation
+              </button>
             </div>
           </div>
 
+          {/* Field Type Selection */}
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">Field Type</label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => setFieldType('electric')}
+                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  fieldType === 'electric'
+                    ? 'bg-cyan-600 text-white'
+                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                }`}
+              >
+                Electric
+              </button>
+              <button
+                onClick={() => setFieldType('magnetic')}
+                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  fieldType === 'magnetic'
+                    ? 'bg-orange-600 text-white'
+                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                }`}
+              >
+                Magnetic
+              </button>
+              <button
+                onClick={() => setFieldType('both')}
+                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  fieldType === 'both'
+                    ? 'bg-purple-600 text-white'
+                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                }`}
+              >
+                Both
+              </button>
+              <button
+                onClick={() => setFieldType('poynting')}
+                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  fieldType === 'poynting'
+                    ? 'bg-green-600 text-white'
+                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                }`}
+              >
+                Poynting
+              </button>
+            </div>
+          </div>
+
+          {/* Animation Speed */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">Animation Speed</label>
             <input
@@ -72,6 +146,7 @@ export function VisualizationControls() {
             </div>
           </div>
 
+          {/* Field Lines Density */}
           {visualizationMode === 'fieldLines' && (
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">Field Lines Density</label>
@@ -92,13 +167,28 @@ export function VisualizationControls() {
             </div>
           )}
 
+          {/* Field Components Toggle */}
+          <div>
+            <label className="flex items-center gap-2 text-sm text-gray-300">
+              <input
+                type="checkbox"
+                checked={showFieldComponents}
+                onChange={(e) => useSimulationStore.setState({ showFieldComponents: e.target.checked })}
+                className="rounded"
+              />
+              Show Field Components
+            </label>
+          </div>
+
+          {/* Color Scheme */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">Color Scheme</label>
             <select className="w-full px-3 py-2 bg-gray-700 rounded-lg text-white text-sm">
-              <option>Electric Field (Blue/Red)</option>
-              <option>Magnetic Field (Red/Green)</option>
+              <option>Electric Field (Cyan/Blue)</option>
+              <option>Magnetic Field (Red/Orange)</option>
               <option>Rainbow Gradient</option>
               <option>Monochrome</option>
+              <option>High Contrast</option>
             </select>
           </div>
         </div>
