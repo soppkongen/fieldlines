@@ -14,6 +14,9 @@ export function VisualizationControls() {
     fieldLinesDensity,
     setFieldLinesDensity,
     showFieldComponents,
+    enableInduction,
+    showPoyntingVectors,
+    showEnergyDensity,
     activeViews,
     setActiveViews
   } = useSimulationStore();
@@ -77,6 +80,16 @@ export function VisualizationControls() {
               >
                 Wave Propagation
               </button>
+              <button
+                onClick={() => setVisualizationMode('poyntingField')}
+                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  visualizationMode === 'poyntingField'
+                    ? 'bg-green-600 text-white'
+                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                }`}
+              >
+                Energy Flow
+              </button>
             </div>
           </div>
 
@@ -124,6 +137,40 @@ export function VisualizationControls() {
               >
                 Poynting
               </button>
+            </div>
+          </div>
+
+          {/* Maxwell's Equations Features */}
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">Maxwell Features</label>
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm text-gray-300">
+                <input
+                  type="checkbox"
+                  checked={enableInduction}
+                  onChange={(e) => useSimulationStore.setState({ enableInduction: e.target.checked })}
+                  className="rounded"
+                />
+                Enable Field Induction (∇×E = -∂B/∂t)
+              </label>
+              <label className="flex items-center gap-2 text-sm text-gray-300">
+                <input
+                  type="checkbox"
+                  checked={showPoyntingVectors}
+                  onChange={(e) => useSimulationStore.setState({ showPoyntingVectors: e.target.checked })}
+                  className="rounded"
+                />
+                Show Poynting Vectors (S = E×B/μ₀)
+              </label>
+              <label className="flex items-center gap-2 text-sm text-gray-300">
+                <input
+                  type="checkbox"
+                  checked={showEnergyDensity}
+                  onChange={(e) => useSimulationStore.setState({ showEnergyDensity: e.target.checked })}
+                  className="rounded"
+                />
+                Show Energy Density
+              </label>
             </div>
           </div>
 
@@ -186,6 +233,7 @@ export function VisualizationControls() {
             <select className="w-full px-3 py-2 bg-gray-700 rounded-lg text-white text-sm">
               <option>Electric Field (Cyan/Blue)</option>
               <option>Magnetic Field (Red/Orange)</option>
+              <option>Energy Flow (Green)</option>
               <option>Rainbow Gradient</option>
               <option>Monochrome</option>
               <option>High Contrast</option>

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { MaterialProperties, WaveSource } from '../utils/maxwellEngine';
 
 interface Source {
   id: string;
@@ -26,11 +27,13 @@ interface SimulationStore {
   // Simulation state
   isRunning: boolean;
   sources: Source[];
+  waveSources: WaveSource[];
+  materials: MaterialProperties[];
   probePosition: [number, number, number];
   currentTime: number;
   
   // Visualization settings
-  visualizationMode: 'fieldLines' | 'vectorField' | 'multiView' | 'wavePropagation';
+  visualizationMode: 'fieldLines' | 'vectorField' | 'multiView' | 'wavePropagation' | 'poyntingField';
   fieldType: 'electric' | 'magnetic' | 'both' | 'poynting';
   animationSpeed: number;
   fieldLinesDensity: number;
@@ -45,6 +48,11 @@ interface SimulationStore {
   showWavefront: boolean;
   phaseDisplay: boolean;
   
+  // Maxwell engine settings
+  enableInduction: boolean;
+  showPoyntingVectors: boolean;
+  showEnergyDensity: boolean;
+  
   // Multi-view settings
   activeViews: string[];
   
@@ -58,8 +66,14 @@ interface SimulationStore {
   addSource: (source: Omit<Source, 'id'>) => void;
   removeSource: (id: string) => void;
   updateSource: (id: string, updates: Partial<Source>) => void;
+  addWaveSource: (source: Omit<WaveSource, 'id'>) => void;
+  removeWaveSource: (id: string) => void;
+  updateWaveSource: (id: string, updates: Partial<WaveSource>) => void;
+  addMaterial: (material: Omit<MaterialProperties, 'id'>) => void;
+  removeMaterial: (id: string) => void;
+  updateMaterial: (id: string, updates: Partial<MaterialProperties>) => void;
   setProbePosition: (position: [number, number, number]) => void;
-  setVisualizationMode: (mode: 'fieldLines' | 'vectorField' | 'multiView' | 'wavePropagation') => void;
+  setVisualizationMode: (mode: 'fieldLines' | 'vectorField' | 'multiView' | 'wavePropagation' | 'poyntingField') => void;
   setFieldType: (type: 'electric' | 'magnetic' | 'both' | 'poynting') => void;
   setAnimationSpeed: (speed: number) => void;
   setFieldLinesDensity: (density: number) => void;
@@ -87,16 +101,10 @@ export const useSimulationStore = create<SimulationStore>((set, get) => ({
       position: [3, 0, 0],
       strength: -2,
       type: 'charge'
-    },
-    {
-      id: 'default-wire',
-      position: [0, 0, -3],
-      strength: 0,
-      type: 'wire',
-      current: 5,
-      direction: [0, 1, 0]
     }
   ],
+  waveSources: [],
+  materials: [],
   probePosition: [0, 2, 0],
   currentTime: 0,
   visualizationMode: 'fieldLines',
@@ -109,6 +117,9 @@ export const useSimulationStore = create<SimulationStore>((set, get) => ({
   waveSpeed: 1.0, // speed of light
   showWavefront: true,
   phaseDisplay: false,
+  enableInduction: true,
+  showPoyntingVectors: false,
+  showEnergyDensity: false,
   activeViews: ['3d'],
   fieldHistory: [],
 
@@ -136,16 +147,10 @@ export const useSimulationStore = create<SimulationStore>((set, get) => ({
         position: [3, 0, 0],
         strength: -2,
         type: 'charge'
-      },
-      {
-        id: 'default-wire',
-        position: [0, 0, -3],
-        strength: 0,
-        type: 'wire',
-        current: 5,
-        direction: [0, 1, 0]
       }
     ],
+    waveSources: [],
+    materials: [],
     probePosition: [0, 2, 0]
   }),
 
@@ -163,6 +168,34 @@ export const useSimulationStore = create<SimulationStore>((set, get) => ({
     )
   })),
 
+  addWaveSource: (source) => set((state) => ({
+    waveSources: [...state.waveSources, { ...source, id: crypto.randomUUID() }]
+  })),
+
+  removeWaveSource: (id) => set((state) => ({
+    waveSources: state.waveSources.filter(source => source.id !== id)
+  })),
+
+  updateWaveSource: (id, updates) => set((state) => ({
+    waveSources: state.waveSources.map(source => 
+      source.id === id ? { ...source, ...updates } : source
+    )
+  })),
+
+  addMaterial: (material) => set((state) => ({
+    materials: [...state.materials, { ...material, id: crypto.randomUUID() }]
+  })),
+
+  removeMaterial: (id) => set((state) => ({
+    materials: state.materials.filter(material => material.id !== id)
+  })),
+
+  updateMaterial: (id, updates) => set((state) => ({
+    materials: state.materials.map(material => 
+      material.id === id ? { ...material, ...updates } : material
+    )
+  })),
+
   setProbePosition: (position) => set({ probePosition: position }),
   setVisualizationMode: (mode) => set({ visualizationMode: mode }),
   setFieldType: (type) => set({ fieldType: type }),
@@ -175,9 +208,11 @@ export const useSimulationStore = create<SimulationStore>((set, get) => ({
   exportScene: () => {
     const state = get();
     return {
-      version: '2.0.0',
+      version: '3.0.0',
       timestamp: new Date().toISOString(),
       sources: state.sources,
+      waveSources: state.waveSources,
+      materials: state.materials,
       probePosition: state.probePosition,
       visualizationSettings: {
         mode: state.visualizationMode,
@@ -185,7 +220,10 @@ export const useSimulationStore = create<SimulationStore>((set, get) => ({
         animationSpeed: state.animationSpeed,
         fieldLinesDensity: state.fieldLinesDensity,
         timeStep: state.timeStep,
-        waveSpeed: state.waveSpeed
+        waveSpeed: state.waveSpeed,
+        enableInduction: state.enableInduction,
+        showPoyntingVectors: state.showPoyntingVectors,
+        showEnergyDensity: state.showEnergyDensity
       },
       fieldHistory: state.fieldHistory
     };
@@ -195,6 +233,8 @@ export const useSimulationStore = create<SimulationStore>((set, get) => ({
     if (data.sources && Array.isArray(data.sources)) {
       set({
         sources: data.sources,
+        waveSources: data.waveSources || [],
+        materials: data.materials || [],
         probePosition: data.probePosition || [0, 2, 0],
         visualizationMode: data.visualizationSettings?.mode || 'fieldLines',
         fieldType: data.visualizationSettings?.fieldType || 'electric',
@@ -202,6 +242,9 @@ export const useSimulationStore = create<SimulationStore>((set, get) => ({
         fieldLinesDensity: data.visualizationSettings?.fieldLinesDensity || 8,
         timeStep: data.visualizationSettings?.timeStep || 1e-9,
         waveSpeed: data.visualizationSettings?.waveSpeed || 1.0,
+        enableInduction: data.visualizationSettings?.enableInduction ?? true,
+        showPoyntingVectors: data.visualizationSettings?.showPoyntingVectors ?? false,
+        showEnergyDensity: data.visualizationSettings?.showEnergyDensity ?? false,
         fieldHistory: data.fieldHistory || []
       });
     }
@@ -209,6 +252,8 @@ export const useSimulationStore = create<SimulationStore>((set, get) => ({
 
   clearScene: () => set({
     sources: [],
+    waveSources: [],
+    materials: [],
     probePosition: [0, 2, 0],
     isRunning: false,
     currentTime: 0,
