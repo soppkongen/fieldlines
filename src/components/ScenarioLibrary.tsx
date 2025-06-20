@@ -18,9 +18,21 @@ const SCENARIO_TEMPLATES: ScenarioTemplate[] = [
     category: 'electrostatics',
     data: {
       sources: [
-        { position: [-2, 0, 0], strength: 2, type: 'charge' },
-        { position: [2, 0, 0], strength: -2, type: 'charge' }
+        { 
+          id: 'charge-1',
+          position: [-2, 0, 0], 
+          strength: 2, 
+          type: 'charge' 
+        },
+        { 
+          id: 'charge-2',
+          position: [2, 0, 0], 
+          strength: -2, 
+          type: 'charge' 
+        }
       ],
+      waveSources: [],
+      materials: [],
       probePosition: [0, 1, 0]
     }
   },
@@ -31,13 +43,15 @@ const SCENARIO_TEMPLATES: ScenarioTemplate[] = [
     category: 'electrostatics',
     data: {
       sources: [
-        { position: [-3, 0, 0], strength: 5, type: 'charge' },
-        { position: [-3, 1, 0], strength: 5, type: 'charge' },
-        { position: [-3, -1, 0], strength: 5, type: 'charge' },
-        { position: [3, 0, 0], strength: -5, type: 'charge' },
-        { position: [3, 1, 0], strength: -5, type: 'charge' },
-        { position: [3, -1, 0], strength: -5, type: 'charge' }
+        { id: 'plate1-1', position: [-3, 0, 0], strength: 5, type: 'charge' },
+        { id: 'plate1-2', position: [-3, 1, 0], strength: 5, type: 'charge' },
+        { id: 'plate1-3', position: [-3, -1, 0], strength: 5, type: 'charge' },
+        { id: 'plate2-1', position: [3, 0, 0], strength: -5, type: 'charge' },
+        { id: 'plate2-2', position: [3, 1, 0], strength: -5, type: 'charge' },
+        { id: 'plate2-3', position: [3, -1, 0], strength: -5, type: 'charge' }
       ],
+      waveSources: [],
+      materials: [],
       probePosition: [0, 0, 0]
     }
   },
@@ -48,9 +62,25 @@ const SCENARIO_TEMPLATES: ScenarioTemplate[] = [
     category: 'magnetostatics',
     data: {
       sources: [
-        { position: [0, -1.5, 0], type: 'loop', current: 5, radius: 1.5 },
-        { position: [0, 1.5, 0], type: 'loop', current: 5, radius: 1.5 }
+        { 
+          id: 'coil-1',
+          position: [0, -1.5, 0], 
+          type: 'loop', 
+          current: 5, 
+          radius: 1.5,
+          strength: 0
+        },
+        { 
+          id: 'coil-2',
+          position: [0, 1.5, 0], 
+          type: 'loop', 
+          current: 5, 
+          radius: 1.5,
+          strength: 0
+        }
       ],
+      waveSources: [],
+      materials: [],
       probePosition: [0, 0, 0]
     }
   },
@@ -61,8 +91,19 @@ const SCENARIO_TEMPLATES: ScenarioTemplate[] = [
     category: 'magnetostatics',
     data: {
       sources: [
-        { position: [0, 0, 0], type: 'solenoid', current: 3, radius: 0.8, length: 4, turns: 200 }
+        { 
+          id: 'solenoid-1',
+          position: [0, 0, 0], 
+          type: 'solenoid', 
+          current: 3, 
+          radius: 0.8, 
+          length: 4, 
+          turns: 200,
+          strength: 0
+        }
       ],
+      waveSources: [],
+      materials: [],
       probePosition: [0, 0, 0]
     }
   },
@@ -72,8 +113,10 @@ const SCENARIO_TEMPLATES: ScenarioTemplate[] = [
     description: 'Half-wave dipole antenna radiating electromagnetic waves',
     category: 'waves',
     data: {
+      sources: [],
       waveSources: [
         { 
+          id: 'dipole-1',
           type: 'dipole', 
           position: [0, 0, 0], 
           orientation: [0, 1, 0], 
@@ -83,6 +126,7 @@ const SCENARIO_TEMPLATES: ScenarioTemplate[] = [
           length: 1.5 
         }
       ],
+      materials: [],
       probePosition: [3, 0, 0]
     }
   },
@@ -93,10 +137,17 @@ const SCENARIO_TEMPLATES: ScenarioTemplate[] = [
     category: 'materials',
     data: {
       sources: [
-        { position: [-4, 0, 0], strength: 3, type: 'charge' }
+        { 
+          id: 'charge-source',
+          position: [-4, 0, 0], 
+          strength: 3, 
+          type: 'charge' 
+        }
       ],
+      waveSources: [],
       materials: [
         {
+          id: 'dielectric-1',
           name: 'High-K Dielectric',
           relativePermittivity: 10,
           relativePermeability: 1,
@@ -118,10 +169,21 @@ const SCENARIO_TEMPLATES: ScenarioTemplate[] = [
     category: 'materials',
     data: {
       sources: [
-        { position: [0, 0, 0], type: 'solenoid', current: 2, radius: 0.6, length: 2, turns: 100 }
+        { 
+          id: 'solenoid-core',
+          position: [0, 0, 0], 
+          type: 'solenoid', 
+          current: 2, 
+          radius: 0.6, 
+          length: 2, 
+          turns: 100,
+          strength: 0
+        }
       ],
+      waveSources: [],
       materials: [
         {
+          id: 'iron-core',
           name: 'Iron Core',
           relativePermittivity: 1,
           relativePermeability: 5000,
@@ -141,27 +203,48 @@ const SCENARIO_TEMPLATES: ScenarioTemplate[] = [
 export function ScenarioLibrary() {
   const [isExpanded, setIsExpanded] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [isLoading, setIsLoading] = useState(false);
   const { importScene, exportScene } = useSimulationStore();
 
   const filteredScenarios = selectedCategory === 'all' 
     ? SCENARIO_TEMPLATES 
     : SCENARIO_TEMPLATES.filter(s => s.category === selectedCategory);
 
-  const handleLoadScenario = (scenario: ScenarioTemplate) => {
-    importScene(scenario.data);
+  const handleLoadScenario = async (scenario: ScenarioTemplate) => {
+    try {
+      setIsLoading(true);
+      console.log('Loading scenario:', scenario.name, scenario.data);
+      
+      // Add a small delay to show loading state
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      importScene(scenario.data);
+      
+      console.log('Scenario loaded successfully');
+    } catch (error) {
+      console.error('Failed to load scenario:', error);
+      alert(`Failed to load scenario: ${scenario.name}. Please try again.`);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleExportCustom = () => {
-    const sceneData = exportScene();
-    const blob = new Blob([JSON.stringify(sceneData, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `custom-scenario-${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    try {
+      const sceneData = exportScene();
+      const blob = new Blob([JSON.stringify(sceneData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `custom-scenario-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Failed to export scenario:', error);
+      alert('Failed to export scenario. Please try again.');
+    }
   };
 
   const handleImportCustom = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -173,12 +256,16 @@ export function ScenarioLibrary() {
       try {
         const sceneData = JSON.parse(e.target?.result as string);
         importScene(sceneData);
+        console.log('Custom scenario imported successfully');
       } catch (error) {
         console.error('Failed to import scenario:', error);
         alert('Failed to import scenario. Please check the file format.');
       }
     };
     reader.readAsText(file);
+    
+    // Reset the input
+    event.target.value = '';
   };
 
   return (
@@ -196,6 +283,13 @@ export function ScenarioLibrary() {
 
       {isExpanded && (
         <div className="px-4 pb-4 space-y-4">
+          {/* Loading indicator */}
+          {isLoading && (
+            <div className="bg-blue-600 text-white px-3 py-2 rounded-lg text-sm text-center">
+              Loading scenario...
+            </div>
+          )}
+
           {/* Category Filter */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">Category</label>
@@ -252,9 +346,10 @@ export function ScenarioLibrary() {
                 
                 <button
                   onClick={() => handleLoadScenario(scenario)}
-                  className="w-full px-3 py-2 bg-emerald-600 hover:bg-emerald-700 rounded text-white text-sm font-medium transition-colors"
+                  disabled={isLoading}
+                  className="w-full px-3 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded text-white text-sm font-medium transition-colors"
                 >
-                  Load Scenario
+                  {isLoading ? 'Loading...' : 'Load Scenario'}
                 </button>
               </div>
             ))}

@@ -86,6 +86,70 @@ interface SimulationStore {
   exportFieldData: () => void;
 }
 
+// Helper function to ensure valid source data
+const validateSource = (source: any): Source => {
+  return {
+    id: source.id || crypto.randomUUID(),
+    position: Array.isArray(source.position) && source.position.length === 3 
+      ? source.position as [number, number, number]
+      : [0, 0, 0],
+    strength: typeof source.strength === 'number' ? source.strength : 1,
+    type: ['charge', 'dipole', 'current', 'wire', 'loop', 'solenoid'].includes(source.type) 
+      ? source.type 
+      : 'charge',
+    current: typeof source.current === 'number' ? source.current : undefined,
+    radius: typeof source.radius === 'number' ? source.radius : undefined,
+    length: typeof source.length === 'number' ? source.length : undefined,
+    turns: typeof source.turns === 'number' ? source.turns : undefined,
+    direction: Array.isArray(source.direction) && source.direction.length === 3 
+      ? source.direction as [number, number, number]
+      : undefined,
+    frequency: typeof source.frequency === 'number' ? source.frequency : undefined,
+    phase: typeof source.phase === 'number' ? source.phase : undefined
+  };
+};
+
+// Helper function to ensure valid wave source data
+const validateWaveSource = (source: any): WaveSource => {
+  return {
+    id: source.id || crypto.randomUUID(),
+    type: ['dipole', 'monopole', 'loop'].includes(source.type) ? source.type : 'dipole',
+    position: Array.isArray(source.position) && source.position.length === 3 
+      ? source.position as [number, number, number]
+      : [0, 0, 0],
+    orientation: Array.isArray(source.orientation) && source.orientation.length === 3 
+      ? source.orientation as [number, number, number]
+      : [0, 1, 0],
+    frequency: typeof source.frequency === 'number' ? source.frequency : 100e6,
+    amplitude: typeof source.amplitude === 'number' ? source.amplitude : 1,
+    phase: typeof source.phase === 'number' ? source.phase : 0,
+    length: typeof source.length === 'number' ? source.length : undefined
+  };
+};
+
+// Helper function to ensure valid material data
+const validateMaterial = (material: any): MaterialProperties => {
+  return {
+    id: material.id || crypto.randomUUID(),
+    name: typeof material.name === 'string' ? material.name : 'Material',
+    relativePermittivity: typeof material.relativePermittivity === 'number' 
+      ? material.relativePermittivity : 1,
+    relativePermeability: typeof material.relativePermeability === 'number' 
+      ? material.relativePermeability : 1,
+    conductivity: typeof material.conductivity === 'number' ? material.conductivity : 0,
+    geometry: {
+      type: ['sphere', 'box', 'cylinder'].includes(material.geometry?.type) 
+        ? material.geometry.type : 'sphere',
+      position: Array.isArray(material.geometry?.position) && material.geometry.position.length === 3 
+        ? material.geometry.position as [number, number, number]
+        : [0, 0, 0],
+      dimensions: Array.isArray(material.geometry?.dimensions) && material.geometry.dimensions.length === 3 
+        ? material.geometry.dimensions as [number, number, number]
+        : [1, 1, 1]
+    }
+  };
+};
+
 export const useSimulationStore = create<SimulationStore>((set, get) => ({
   // Initial state
   isRunning: false,
@@ -230,22 +294,83 @@ export const useSimulationStore = create<SimulationStore>((set, get) => ({
   },
 
   importScene: (data) => {
-    if (data.sources && Array.isArray(data.sources)) {
+    try {
+      // Stop simulation first
+      set({ isRunning: false });
+
+      // Validate and import sources
+      const validatedSources = Array.isArray(data.sources) 
+        ? data.sources.map(validateSource)
+        : [];
+
+      // Validate and import wave sources
+      const validatedWaveSources = Array.isArray(data.waveSources) 
+        ? data.waveSources.map(validateWaveSource)
+        : [];
+
+      // Validate and import materials
+      const validatedMaterials = Array.isArray(data.materials) 
+        ? data.materials.map(validateMaterial)
+        : [];
+
+      // Validate probe position
+      const validatedProbePosition = Array.isArray(data.probePosition) && data.probePosition.length === 3
+        ? data.probePosition as [number, number, number]
+        : [0, 2, 0];
+
+      // Update state with validated data
       set({
-        sources: data.sources,
-        waveSources: data.waveSources || [],
-        materials: data.materials || [],
-        probePosition: data.probePosition || [0, 2, 0],
+        sources: validatedSources,
+        waveSources: validatedWaveSources,
+        materials: validatedMaterials,
+        probePosition: validatedProbePosition,
         visualizationMode: data.visualizationSettings?.mode || 'fieldLines',
         fieldType: data.visualizationSettings?.fieldType || 'electric',
-        animationSpeed: data.visualizationSettings?.animationSpeed || 1,
-        fieldLinesDensity: data.visualizationSettings?.fieldLinesDensity || 8,
-        timeStep: data.visualizationSettings?.timeStep || 1e-9,
-        waveSpeed: data.visualizationSettings?.waveSpeed || 1.0,
+        animationSpeed: typeof data.visualizationSettings?.animationSpeed === 'number' 
+          ? data.visualizationSettings.animationSpeed : 1,
+        fieldLinesDensity: typeof data.visualizationSettings?.fieldLinesDensity === 'number' 
+          ? data.visualizationSettings.fieldLinesDensity : 8,
+        timeStep: typeof data.visualizationSettings?.timeStep === 'number' 
+          ? data.visualizationSettings.timeStep : 1e-9,
+        waveSpeed: typeof data.visualizationSettings?.waveSpeed === 'number' 
+          ? data.visualizationSettings.waveSpeed : 1.0,
         enableInduction: data.visualizationSettings?.enableInduction ?? true,
         showPoyntingVectors: data.visualizationSettings?.showPoyntingVectors ?? false,
         showEnergyDensity: data.visualizationSettings?.showEnergyDensity ?? false,
-        fieldHistory: data.fieldHistory || []
+        fieldHistory: [],
+        currentTime: 0
+      });
+
+      console.log('Scene imported successfully:', {
+        sources: validatedSources.length,
+        waveSources: validatedWaveSources.length,
+        materials: validatedMaterials.length
+      });
+
+    } catch (error) {
+      console.error('Failed to import scene:', error);
+      // Reset to default state on error
+      set({
+        sources: [
+          {
+            id: 'default-1',
+            position: [-3, 0, 0],
+            strength: 2,
+            type: 'charge'
+          },
+          {
+            id: 'default-2',
+            position: [3, 0, 0],
+            strength: -2,
+            type: 'charge'
+          }
+        ],
+        waveSources: [],
+        materials: [],
+        probePosition: [0, 2, 0],
+        isRunning: false,
+        currentTime: 0,
+        fieldHistory: []
       });
     }
   },
@@ -262,32 +387,41 @@ export const useSimulationStore = create<SimulationStore>((set, get) => ({
 
   exportFieldData: () => {
     const state = get();
-    const csvData = state.fieldHistory.map(data => ({
-      timestamp: data.timestamp,
-      Ex: data.electric[0],
-      Ey: data.electric[1],
-      Ez: data.electric[2],
-      Bx: data.magnetic[0],
-      By: data.magnetic[1],
-      Bz: data.magnetic[2],
-      Sx: data.poynting[0],
-      Sy: data.poynting[1],
-      Sz: data.poynting[2]
-    }));
-    
-    const csv = [
-      'timestamp,Ex,Ey,Ez,Bx,By,Bz,Sx,Sy,Sz',
-      ...csvData.map(row => Object.values(row).join(','))
-    ].join('\n');
-    
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `field-data-${new Date().toISOString().split('T')[0]}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    if (state.fieldHistory.length === 0) {
+      console.warn('No field data to export');
+      return;
+    }
+
+    try {
+      const csvData = state.fieldHistory.map(data => ({
+        timestamp: data.timestamp || 0,
+        Ex: data.electric?.[0] || 0,
+        Ey: data.electric?.[1] || 0,
+        Ez: data.electric?.[2] || 0,
+        Bx: data.magnetic?.[0] || 0,
+        By: data.magnetic?.[1] || 0,
+        Bz: data.magnetic?.[2] || 0,
+        Sx: data.poynting?.[0] || 0,
+        Sy: data.poynting?.[1] || 0,
+        Sz: data.poynting?.[2] || 0
+      }));
+      
+      const csv = [
+        'timestamp,Ex,Ey,Ez,Bx,By,Bz,Sx,Sy,Sz',
+        ...csvData.map(row => Object.values(row).join(','))
+      ].join('\n');
+      
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `field-data-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Failed to export field data:', error);
+    }
   }
 }));
